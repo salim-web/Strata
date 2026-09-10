@@ -8,6 +8,9 @@ backend_dir = root_dir / "backend"
 sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(backend_dir))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from backend.main import app
 

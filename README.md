@@ -1,150 +1,128 @@
-# 🛡️ STRATA
+# 🛡️ STRATA: Passive Network Threat Intelligence Enclave
 
-**STRATA** is an AI-powered, real-time threat detection and rate-limiting system built for high-concurrency API protection. STRATA combines FastAPI backend security middleware, Redis sliding-window rate limiting, a local dual-engine ML threat detector (**Hugging Face MobileBERT + Scikit-Learn IsolationForest**), and a Next.js command dashboard for real-time security operations.
+**STRATA v2.0** is an autonomous, read-only **Passive Network Threat Intelligence Enclave** engineered under strict **unidirectional data diode / passive optical mirroring** constraints. 
+
+STRATA operates exclusively as a one-directional streaming consumer of passive network metadata (NetFlow/IPFIX, PCAP/pcap-ng metadata, or streaming flow records). In accordance with hardware air-gap and optical tap security standards, **all inline blocking, reverse-proxy interception, return-path actions, TCP resets, and firewall pushbacks are strictly prohibited and architecturally eliminated**. Furthermore, payload decryption is strictly forbidden: TLS/QUIC traffic is analyzed non-intrusively via metadata (JA3/JA4 fingerprints, cipher suites, and packet length/timing sequence arrays).
 
 ---
 
-## 🏗️ Monorepo Architecture
+## 🏗️ Unidirectional Data Diode Architecture
 
 ```
-STRATA/
-├── backend/               # FastAPI Security Gateway & Middleware
-│   ├── config.py          # Pydantic Settings configuration & env parser
-│   ├── main.py            # Gateway entry point, lifespan & route registration
-│   ├── middleware/        # Redis rate-limiting, IP blacklisting, PyJWT & Telemetry
-│   │   ├── __init__.py
-│   │   ├── rate_limiter.py # Sliding-window rate limiter & dynamic IP blocker
-│   │   ├── redis_rate_limit.py # ThreatTracker singleton & telemetry metrics
-│   │   ├── telemetry.py    # Live request streaming & dynamic sampling dispatcher
-│   │   └── auth.py        # PyJWT verification & access tokens
-│   ├── routes/            # Target API endpoints, honeypot & simulation routes
-│   └── requirements.txt   # Backend Python dependencies
-├── frontend/              # Next.js & Tailwind Security Operations Dashboard
-│   ├── app/               # Next.js App Router (page.tsx, layout.tsx)
-│   ├── components/        # Dashboard shell, TrafficChart, ThreatFeed, BlockedIPsTable & AttackerConsole
-│   ├── lib/               # API fetching & telemetry interface types
-│   └── package.json
-├── ml_engine/             # 100% Local Dual ML Threat Detection Engine
-│   ├── train_model.py     # IsolationForest baseline anomaly detector trainer
-│   ├── inference.py       # MobileBERT + IsolationForest thread-safe local inference
-│   ├── ai_reporter.py     # CISO Security Incident Report Generator
-│   ├── iso_forest.joblib  # Serialized IsolationForest anomaly detector
-│   └── requirements.txt   # ML dependencies (torch, transformers, scikit-learn, numpy, joblib, pydantic)
-├── scripts/               # Attacker Simulation Suite
-│   └── attacker.py        # Automated attack script (DDoS, SQLi, Auth Brute-force)
-├── .env.example           # Shared environment variables
-├── .gitignore
-└── README.md
+                                  UNIDIRECTIONAL OPTICAL TAP
+                                   (ZERO RETURN PATH / RX-ONLY)
+                                             │
+      ┌──────────────────────────────────────┼──────────────────────────────────────┐
+      │ Core Network Optical Tap             │ Physical Data Diode (Transmit Fiber Cut)
+      │ NetFlow / IPFIX / Mirror Telemetry   ▼
+┌─────┴─────────────────────────────────────────────────────────────────────────────┴─────┐
+│                          STRATA PASSIVE INTELLIGENCE ENCLAVE                             │
+│                                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 1. PASSIVE INGEST & SLIDING-WINDOW FEATURE PIPELINE (2,000 - 5,000+ flows/sec)     │  │
+│  │    • Volumetric / Protocol DDoS: Rolling Flow-rate, SYN/ACK Ratio, Shannon Entropy  │  │
+│  │    • Botnet C2 Beaconing: IAT Variance & Periodicity (FFT/Autocorrelation)           │  │
+│  │    • DNS Tunnelling & DGA: Character Entropy, N-gram distribution, TXT/NULL ratios  │  │
+│  │    • Encrypted Traffic (No Decryption): JA3/JA4 Hashes, SNI, First-N Packet Sizes   │  │
+│  │    • Recon / Scan: 10s Window Fan-out Cardinality (Unique Dst IPs & Dst Ports)      │  │
+│  │    • Data Exfiltration: Directional Byte Asymmetry Ratios (Outbound >> Inbound)     │  │
+│  └──────────────────────────────────────┬──────────────────────────────────────────────┘  │
+│                                         ▼                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 2. SPECIALIZED ML INFERENCE ENSEMBLE (<50ms Latency SLA)                            │  │
+│  │    • Multi-Detector Ensemble (DDoS, C2, DGA, Encrypted Malware, Recon, Exfil)       │  │
+│  │    • Standardized Alert Schema Output                                               │  │
+│  └──────────────────────────────────────┬──────────────────────────────────────────────┘  │
+│                                         ▼                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 3. COGNITIVE THREAT INTELLIGENCE (Google Gemini)                                    │  │
+│  │    • Automated MITRE ATT&CK Mapping & Threat Hypotheses                             │  │
+│  │    • Passive Evidence Breakdown & Non-Intrusive SOC Monitoring Actions              │  │
+│  └──────────────────────────────────────┬──────────────────────────────────────────────┘  │
+│                                         ▼                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 4. AIR-GAPPED DATA DIODE INTELLIGENCE CONSOLE (Next.js & Tailwind)                  │  │
+│  │    • Diode Read-Only Status & Zero Return Path Badge                                │  │
+│  │    • Telemetry KPIs: Sustained Throughput (Flows/s & Mbps), Ingested Packets, SLA   │  │
+│  │    • Live Multi-Threat Radar (6-Vector Confidence & Evidence Gauges)                │  │
+│  │    • Streaming Incident Feed & Gemini AI Analyst Card                               │  │
+│  └─────────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🧠 Dual-Engine ML Architecture
+## 🎯 6 Threat Detection Vectors
 
-STRATA utilizes a **100% local, sub-15ms dual-model threat detection pipeline** that runs completely offline on CPU without external API dependencies:
-
-1. **Hugging Face MobileBERT (`cssupport/mobilebert-sql-injection-detect`)**:
-   - Pre-trained transformer sequence classification model fine-tuned for deep SQL Injection vector and syntax analysis.
-   - Evaluates incoming request parameters and body payloads with PyTorch evaluation mode (`torch.no_grad()`).
-2. **Scikit-Learn IsolationForest (`iso_forest.joblib`)**:
-   - Unsupervised anomaly detector trained on baseline request vectors `[request_velocity, payload_size, header_entropy]`.
-   - Identifies high-rate DDoS floods, abnormal payload spikes, and header manipulation.
+| Threat Vector | Passive Metadata Analyzed | Baseline Normal | Anomaly Threshold |
+| :--- | :--- | :--- | :--- |
+| **1. Volumetric / Protocol DDoS** | Rolling flow velocity, SYN-to-ACK ratio, Source IP Shannon entropy | Flow rate < 500/s, SYN/ACK ~1.0, Entropy ~2-4 | Flow rate > 1,500/s, SYN/ACK > 4.5x, Entropy > 6.0 |
+| **2. Botnet C2 Beaconing** | Inter-arrival time (IAT) variance, autocorrelation peak / FFT periodicity | IAT variance > 1.0s, Random jitter | IAT variance < 0.05s, Periodicity > 65% |
+| **3. DNS Tunnelling & DGA** | Query character Shannon entropy, bigram distribution, label length, TXT/NULL record types | Entropy < 3.2, Vowels 35-45%, Label < 20 chars | Entropy > 3.8, Vowels < 18%, TXT query with length > 24 |
+| **4. Encrypted Traffic (Zero Decryption)** | JA3/JA4 client/server hash matching, SNI heuristics, first-N packet size sequences | Known browser/OS fingerprints, Valid SNI | Matches threat intelligence DB (AsyncRAT, Cobalt Strike, etc.), Direct-IP TLS |
+| **5. Reconnaissance / Scanning** | 10-second rolling fan-out cardinality (unique destination IPs and ports per source IP) | Fan-out < 5 targets/10s | Fan-out > 15 destination IPs or > 20 ports in 10s |
+| **6. Data Exfiltration** | Directional byte asymmetry ($B_{out} / (B_{in} + 1)$), packet asymmetry | Outbound/Inbound ratio < 1.0 (Downloads > Uploads) | Outbound/Inbound ratio > 8.0x with > 250 KB transferred |
 
 ---
 
-## 📦 Backend Dependencies & Requirements
+## 📋 Standardized Alert Schema
 
-The STRATA backend gateway relies on the following core Python libraries:
+Every detection emitted by the ML ensemble adheres to the following contract:
 
-| Dependency | Minimum Version | Purpose |
-| :--- | :--- | :--- |
-| **`fastapi`** | `0.110.0` | High-performance ASGI web framework |
-| **`uvicorn[standard]`** | `0.28.0` | Production ASGI web server with `httptools` & `uvloop` |
-| **`redis`** | `5.0.0` | Async Redis client (`redis.asyncio`) for ZSET sliding-window rate limiting & IP blacklisting |
-| **`torch`** | `2.0+` | PyTorch CPU runtime for MobileBERT local inference |
-| **`transformers`** | `4.38+` | Hugging Face Transformers library for `mobilebert-sql-injection-detect` |
-| **`scikit-learn`** | `1.4.0` | Anomaly detection model (`IsolationForest`) |
-| **`pydantic`** | `2.6.0` | Strict data validation & type enforcement |
-| **`pydantic-settings`** | `2.2.0` | Environment settings management parsing `.env` file |
-| **`pyjwt`** | `2.8.0` | JSON Web Token encoding and verification |
+```json
+{
+  "timestamp": "2026-09-10T12:00:00Z",
+  "flow_id": "10.0.2.14:5312->8.8.8.8:53:UDP",
+  "threat_class": "DGA_DNS_TUNNEL",
+  "confidence_score": 0.96,
+  "severity": "CRITICAL",
+  "evidence": {
+    "dns_query": "x92v7m4b1q8z3k5w.exfil-intel.cc",
+    "query_char_entropy": "4.82",
+    "vowel_ratio": "12.5%",
+    "max_label_length": "32",
+    "record_type": "TXT",
+    "baseline_threshold": "Entropy > 3.80 OR (TXT/NULL AND Length > 20)"
+  }
+}
+```
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### 1. Backend Setup (FastAPI & Redis)
-
-#### **Step 1: Navigate to the `backend/` directory**
+### 1. Start the STRATA Backend Enclave
 ```bash
-cd backend
+# In project root:
+python run_backend.py
 ```
+*The FastAPI Diode Enclave will start on `http://127.0.0.1:8000` with Swagger docs at `http://127.0.0.1:8000/docs`.*
 
-#### **Step 2: Create & activate virtual environment**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-#### **Step 3: Install backend & ML dependencies**
-```bash
-pip install -r requirements.txt
-pip install -r ../ml_engine/requirements.txt
-```
-
-#### **Step 4: Configure environment variables (optional)**
-```bash
-cp ../.env.example .env
-```
-
-#### **Step 5: Start the FastAPI Gateway server**
-```bash
-uvicorn main:app --reload --port 8000
-```
-*The API gateway will start on `http://127.0.0.1:8000` with interactive Swagger docs at `http://127.0.0.1:8000/docs`.*
-
----
-
-### 2. Frontend Setup (Next.js & Tailwind Dashboard)
+### 2. Start the Air-Gapped Intelligence Console (Frontend)
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
+*Access the Next.js Cyber-Analyst Console on `http://localhost:3000`.*
 
-### 3. ML Engine Setup (MobileBERT + IsolationForest)
+### 3. Replay High-Throughput Passive Telemetry Stream
 ```bash
-cd ml_engine
-python train_model.py  # Trains IsolationForest baseline detector (iso_forest.joblib)
-python inference.py    # Downloads/loads MobileBERT and verifies sub-15ms inference pipeline
+# Replay 3,000 flows/sec across all 6 threat vectors:
+python scripts/stream_emitter.py --target-rate 3000
+
+# Custom rate and duration:
+python scripts/stream_emitter.py --target-rate 5000 --duration 60
 ```
 
-### 4. Run Attacker Simulation Suite
+### 4. Run Automated Test Suite
 ```bash
-cd scripts
-python attacker.py
+python -m pytest backend/tests/ -v
 ```
 
 ---
 
-## 🔒 Key Features
+## 🔒 Diode Security & Privacy Guarantees
 
-- **MobileBERT Transformer SQLi Inspection:** Local Hugging Face `cssupport/mobilebert-sql-injection-detect` transformer model for deep SQL Injection vector detection.
-- **IsolationForest Anomaly Detection:** Unsupervised behavioral anomaly detector trained on request velocity, payload size, and header entropy.
-- **Redis IP Rate Limiting & Autonomous Blocking:** Dynamic IP throttling via ZSET sliding window and automatic 24-hour blacklisting upon high anomaly scores.
-- **Dynamic API Traffic Sampling:** Adjustable ML sampling rates (25%, 50%, 75%, 100%) to balance inspection depth against CPU compute overhead.
-- **Real-Time Block Velocity Observability:** High-precision graph velocity synchronization reflecting exact 403/429 blocked request bursts in real time.
-- **Live Blocked Sources Table:** Real-time table displaying quarantined IP addresses with dynamic relative timestamps (`Just now`, `5s ago`) and threat vector classifications.
-- **Custom Attack Payload Lab:** Red-Team simulation bench for testing SQLi, XSS, and custom payloads against target gateway endpoints.
-- **Split-Screen War Room Dashboard:** Next.js operator control panel featuring live ML Latency indicator (~9.3ms), ML Anomaly Index Gauge, and Enterprise Defense Ticker.
-
-Backend Startup
-cd /home/mad-hunter/Documents/Programs/Tigmaminds/backend
-source venv/bin/activate
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-Frontend Startup
-
-cd /home/mad-hunter/Documents/Programs/Tigmaminds/frontend
-npm run dev
-
-salim
+1. **Zero Return Path**: The system never responds to monitored traffic. No packets are transmitted back onto the mirrored segment.
+2. **Zero Active Mitigation**: No IP bans, no firewall rule pushing, no TCP resets, no HTTP 403/429 status codes.
+3. **Payload Privacy**: Encrypted traffic (TLS/QUIC) is never decrypted. All intelligence is derived exclusively from metadata.

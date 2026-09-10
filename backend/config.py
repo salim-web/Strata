@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 10
     RATE_LIMIT_WINDOW_SECONDS: int = 60
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    GEMINI_API_KEY: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=str(env_path) if env_path.exists() else None,
@@ -34,4 +35,9 @@ settings = Settings()
 # Sync SECRET_KEY and JWT_SECRET_KEY
 if settings.SECRET_KEY != "strata_super_secret_jwt_key_2026_production" and settings.JWT_SECRET_KEY == "strata_super_secret_jwt_key_2026_production":
     settings.JWT_SECRET_KEY = settings.SECRET_KEY
+
+# Sync GEMINI_API_KEY to os.environ if loaded from .env
+if settings.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
+    os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+
 

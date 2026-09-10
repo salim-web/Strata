@@ -1,251 +1,219 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Dashboard } from '../components/Dashboard';
-import { AttackerConsole } from '../components/AttackerConsole';
-import { fetchThreatMetrics, unblockIpOnBackend, updateSamplingConfig } from '../lib/api';
+import { DiodeHeader } from '../components/DiodeHeader';
+import { TelemetryKPIs } from '../components/TelemetryKPIs';
+import { MultiThreatRadar } from '../components/MultiThreatRadar';
+import { StreamingIncidentFeed } from '../components/StreamingIncidentFeed';
+import { GeminiAnalystCard } from '../components/GeminiAnalystCard';
 import {
-  initialMockData,
-  generateInitialTrafficHistory,
-  TrafficDataPoint,
-  ThreatMetrics,
-  ThreatAlert,
-  ApiResponseMeta,
+  fetchDiodeStats,
+  fetchStandardizedAlerts,
+  requestGeminiAssessment,
+  triggerThreatBurst,
+} from '../lib/api';
+import {
+  EnclaveKPIs,
+  ThreatRadarItem,
+  StandardizedAlert,
+  GeminiAssessment,
+  initialKPIs,
+  initialThreatRadar,
+  initialStandardizedAlerts,
 } from '../lib/mockData';
+import { Radio, RefreshCw, Layers } from 'lucide-react';
 
+export default function DiodeConsolePage() {
+  const [kpis, setKpis] = useState<EnclaveKPIs>(initialKPIs);
+  const [threatRadar, setThreatRadar] = useState<Record<string, ThreatRadarItem>>(initialThreatRadar);
+  const [alerts, setAlerts] = useState<StandardizedAlert[]>(initialStandardizedAlerts);
+  const [selectedAlert, setSelectedAlert] = useState<StandardizedAlert | null>(initialStandardizedAlerts[0]);
+  const [assessment, setAssessment] = useState<GeminiAssessment | null>(null);
+  const [analystLoading, setAnalystLoading] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
+  const [selectedThreatFilter, setSelectedThreatFilter] = useState<string | null>(null);
 
-export default function Home() {
-  const [metrics, setMetrics] = useState<ThreatMetrics>(initialMockData);
-  const [samplingRate, setSamplingRate] = useState<number>(1.0);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [meta, setMeta] = useState<ApiResponseMeta>({
-    isFallback: true,
-    timestamp: "2026-08-28T18:45:00.000Z",
-    source: 'mock_simulation',
-    latencyMs: 12,
-  });
-  const [trafficHistory, setTrafficHistory] = useState<TrafficDataPoint[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const isPollingRef = useRef<boolean>(false);
-  const lastTotalReqsRef = useRef<number | null>(null);
-  const lastBlockedReqsRef = useRef<number | null>(null);
 
-  // Initialize theme from localStorage and traffic history on first mount
+  // Initial Assessment generation for the first alert on mount
   useEffect(() => {
-    setTrafficHistory(generateInitialTrafficHistory(15));
-    const savedTheme = (localStorage.getItem('strata_theme') || localStorage.getItem('nibdefender_theme')) as 'dark' | 'light';
-    if (savedTheme) {
-      setTheme(savedTheme);
+    let isCancelled = false;
+
+    async function loadInitialAssessment() {
+      if (initialStandardizedAlerts.length > 0) {
+        setAnalystLoading(true);
+        const initialAssmt = await requestGeminiAssessment(initialStandardizedAlerts[0]);
+        if (!isCancelled) {
+          setAssessment(initialAssmt);
+          setAnalystLoading(false);
+        }
+      }
     }
+
+    loadInitialAssessment();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  const handleToggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('strata_theme', next);
-      return next;
-    });
-  }, []);
-
-  // Poll function to fetch metrics every 1 second
-  const pollData = useCallback(async (isManual = false) => {
-    if (isPollingRef.current && !isManual) return;
+  // Poll function for live passive stats & alerts every 1.5 seconds
+  const pollEnclaveTelemetry = useCallback(async () => {
+    if (isPollingRef.current) return;
     isPollingRef.current = true;
-    if (isManual) setLoading(true);
 
     try {
-      const response = await fetchThreatMetrics();
-      // Extract IPs from recent alerts to ensure real-time blocked sources updates
-      const alertIps: string[] = [];
-      const ipRegex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
-      (response.data.recent_alerts || []).forEach((alert) => {
-        const matches = alert.message.match(ipRegex);
-        if (matches) {
-          matches.forEach((ip) => {
-            if (ip !== '127.0.0.1' && ip !== '0.0.0.0' && !alertIps.includes(ip)) {
-              alertIps.push(ip);
-            }
-          });
-        }
-      });
+      const statsResponse = await fetchDiodeStats();
+      const freshAlerts = await fetchStandardizedAlerts(50);
 
-      const mergedBlockedIps = Array.from(new Set([...alertIps, ...(response.data.blocked_ips_list || [])]));
+      setKpis(statsResponse.data.kpis);
+      setThreatRadar(statsResponse.data.threat_radar);
 
-      setMetrics({
-        ...response.data,
-        blocked_ips_list: mergedBlockedIps,
-        blocked_ips_count: mergedBlockedIps.length,
-      });
-      setMeta(response.meta);
-
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-
-      const currentTotal = response.data.total_requests;
-      const currentBlocked = response.data.blocked_requests_count ?? response.data.blocked_ips_count;
-
-      let reqPerSec = 0;
-      let blockedPerSec = 0;
-
-      if (lastTotalReqsRef.current !== null && currentTotal >= lastTotalReqsRef.current) {
-        reqPerSec = currentTotal - lastTotalReqsRef.current;
+      if (freshAlerts && freshAlerts.length > 0) {
+        setAlerts(freshAlerts);
       }
 
-      if (lastBlockedReqsRef.current !== null && currentBlocked >= lastBlockedReqsRef.current) {
-        blockedPerSec = currentBlocked - lastBlockedReqsRef.current;
-      }
-
-      lastTotalReqsRef.current = currentTotal;
-      lastBlockedReqsRef.current = currentBlocked;
-
-      // Ambient baseline if traffic is idle
-      if (reqPerSec === 0) {
-        reqPerSec = Math.floor(12 + Math.random() * 8);
-      }
-
-      const highAlerts = response.data.recent_alerts.filter((a) => a.severity === 'HIGH');
-      if (blockedPerSec === 0 && highAlerts.length > 0) {
-        blockedPerSec = Math.random() > 0.5 ? Math.floor(Math.random() * 3) + 1 : 0;
-      }
-
-      let anomalyIndex = response.data.current_anomaly_score;
-      if (anomalyIndex === undefined || isNaN(anomalyIndex)) {
-        anomalyIndex = parseFloat((0.12 + (blockedPerSec > 5 ? 0.75 : 0)).toFixed(2));
-      }
-
-      setTrafficHistory((prev) => {
-        const updated = [
-          ...prev,
-          {
-            time: timeStr,
-            requests: reqPerSec,
-            blocked: blockedPerSec,
-            anomalyScore: anomalyIndex,
-          },
-        ];
-        // Keep sliding window of latest 15 points
-        return updated.length > 15 ? updated.slice(updated.length - 15) : updated;
-      });
+      setLastSyncTime(
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
     } catch (err) {
-      console.error('Polling error in threat defender dashboard:', err);
+      console.error('Passive enclave polling error:', err);
     } finally {
       isPollingRef.current = false;
-      if (isManual) setLoading(false);
     }
   }, []);
 
-  // 1-second real-time polling effect
+  // Polling Interval
   useEffect(() => {
-    // Initial fetch on mount
-    pollData();
-
-    // 1000ms polling interval
-    const interval = setInterval(() => {
-      pollData();
-    }, 1000);
-
+    pollEnclaveTelemetry();
+    const interval = setInterval(pollEnclaveTelemetry, 1500);
     return () => clearInterval(interval);
-  }, [pollData]);
+  }, [pollEnclaveTelemetry]);
 
-  // Handler for manual refresh
-  const handleRefresh = useCallback(() => {
-    pollData(true);
-  }, [pollData]);
-
-  // Handler for unblocking an IP from the dashboard
-  const handleUnblockIp = useCallback(async (ipToUnblock: string) => {
-    setMetrics((prev) => ({
-      ...prev,
-      blocked_ips_count: Math.max(0, prev.blocked_ips_count - 1),
-      blocked_ips_list: prev.blocked_ips_list.filter((ip) => ip !== ipToUnblock),
-    }));
-    await unblockIpOnBackend(ipToUnblock);
+  // Handler for selecting an alert to analyze with Gemini
+  const handleSelectAlertForAnalysis = useCallback(async (alert: StandardizedAlert) => {
+    setSelectedAlert(alert);
+    setAnalystLoading(true);
+    try {
+      const assmt = await requestGeminiAssessment(alert);
+      setAssessment(assmt);
+    } catch (err) {
+      console.error('Error generating assessment:', err);
+    } finally {
+      setAnalystLoading(false);
+    }
   }, []);
 
-  // Handler for changing API sampling rate
-  const handleSamplingRateChange = useCallback(async (newRate: number) => {
-    setSamplingRate(newRate);
-    setMetrics((prev) => ({
-      ...prev,
-      sampling_rate: newRate,
-      sampling_rate_pct: Math.round(newRate * 100),
-      compute_saved_pct: Math.round((1.0 - newRate) * 100),
-    }));
-    await updateSamplingConfig(newRate);
-  }, []);
+  // Handler for refreshing assessment of current alert
+  const handleRefreshCurrentAssessment = useCallback(async () => {
+    if (selectedAlert) {
+      setAnalystLoading(true);
+      try {
+        const assmt = await requestGeminiAssessment(selectedAlert);
+        setAssessment(assmt);
+      } catch (err) {
+        console.error('Error refreshing assessment:', err);
+      } finally {
+        setAnalystLoading(false);
+      }
+    }
+  }, [selectedAlert]);
 
-  // Handler for triggering an immediate attack simulation spike
-  const handleTriggerSimulatedAttack = useCallback(async () => {
-    // Trigger real attacks against live backend if available
-    // triggerLiveAttackApi('sqli');
+  const [bursting, setBursting] = useState<boolean>(false);
 
-    const randomIp = `185.220.${Math.floor(Math.random() * 200) + 10}.${Math.floor(Math.random() * 250) + 1}`;
-    const spikeAlert: ThreatAlert = {
-      id: `ALT-SIM-${Date.now().toString().slice(-4)}`,
-      timestamp: new Date().toISOString(),
-      severity: 'HIGH',
-      message: `CRITICAL ATTACK SPIKE: Multi-threaded credential stuffing & SQLi detected from simulated botnet node ${randomIp}`,
-    };
+  const handleInjectBurst = useCallback(async (threatClass: string) => {
+    setBursting(true);
+    try {
+      await triggerThreatBurst(threatClass, 80);
+      // Immediately trigger a poll
+      setTimeout(() => pollEnclaveTelemetry(), 300);
+    } catch (err) {
+      console.error('Error injecting threat burst:', err);
+    } finally {
+      setBursting(false);
+    }
+  }, [pollEnclaveTelemetry]);
 
-    setMetrics((prev) => ({
-      ...prev,
-      total_requests: prev.total_requests + 320,
-      blocked_ips_count: prev.blocked_ips_count + 1,
-      blocked_ips_list: [randomIp, ...prev.blocked_ips_list],
-      recent_alerts: [spikeAlert, ...prev.recent_alerts.slice(0, 19)],
-    }));
-
-    // Inject spike to chart immediately
-    const timeStr = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
-    setTrafficHistory((prev) => [
-      ...prev.slice(-14),
-      {
-        time: timeStr,
-        requests: 180,
-        blocked: 42,
-        anomalyScore: 0.98,
-      },
-    ]);
-  }, []);
-
-  const isLight = theme === 'light';
+  // Filter alerts if a threat radar card was clicked
+  const displayedAlerts = selectedThreatFilter
+    ? alerts.filter((a) => a.threat_class === selectedThreatFilter)
+    : alerts;
 
   return (
-    <div className={`flex flex-col lg:flex-row h-screen overflow-hidden transition-colors ${
-      isLight ? 'bg-slate-100 text-slate-900 light-mode' : 'bg-[#080b11] text-slate-100'
-    }`}>
-      {/* Left Panel: Attacker Console (40%) */}
-      <div className={`lg:w-[40%] h-1/2 lg:h-full p-4 lg:p-6 border-b lg:border-b-0 lg:border-r overflow-y-auto ${
-        isLight ? 'border-slate-300 bg-slate-200/50' : 'border-white/[0.06] bg-[#080b11]'
-      }`}>
-        <AttackerConsole theme={theme} onToggleTheme={handleToggleTheme} />
-      </div>
+    <div className="min-h-screen bg-[#06090f] text-slate-100 selection:bg-cyan-500 selection:text-slate-950 font-sans flex flex-col">
+      {/* 1. Header with glowing diode badge */}
+      <DiodeHeader
+        flowsPerSec={kpis.sustained_flows_per_sec}
+        mbps={kpis.sustained_mbps}
+        pipelineLatency={kpis.pipeline_latency_ms}
+        lastUpdated={lastSyncTime || 'LIVE'}
+        onInjectBurst={handleInjectBurst}
+        bursting={bursting}
+      />
 
-      {/* Right Panel: Defender CISO Dashboard (60%) */}
-      <div className="lg:w-[60%] h-1/2 lg:h-full overflow-y-auto">
-        <Dashboard
-          metrics={metrics}
-          meta={meta}
-          trafficHistory={trafficHistory}
-          loading={loading}
-          samplingRate={samplingRate}
-          theme={theme}
-          onRefresh={handleRefresh}
-          onUnblockIp={handleUnblockIp}
-          onSamplingRateChange={handleSamplingRateChange}
-          onTriggerSimulatedAttack={handleTriggerSimulatedAttack}
-          onToggleTheme={handleToggleTheme}
-        />
-      </div>
+      {/* Main Enclave Workspace */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1700px] mx-auto w-full">
+        {/* 2. Telemetry KPIs Row (Flows/s, Mbps, Packets, SLA Latency) */}
+        <TelemetryKPIs kpis={kpis} />
+
+        {/* 3. Multi-Threat Radar (6 Threat Vector Breakdown Cards) */}
+        <div className="relative">
+          <MultiThreatRadar
+            radar={threatRadar}
+            selectedThreatClass={selectedThreatFilter}
+            onSelectThreatClass={(threatClass) => {
+              setSelectedThreatFilter((prev) => (prev === threatClass ? null : threatClass));
+            }}
+          />
+          {selectedThreatFilter && (
+            <div className="mt-2 flex items-center justify-between bg-cyan-950/30 border border-cyan-500/20 px-3 py-1.5 rounded-lg text-xs font-mono text-cyan-300">
+              <span>Filtering Incident Feed by: <strong>{selectedThreatFilter}</strong></span>
+              <button
+                onClick={() => setSelectedThreatFilter(null)}
+                className="text-slate-400 hover:text-white underline text-[11px]"
+              >
+                Clear Filter
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Split-Screen Intelligence Deck: Feed (50%) + AI Analyst Card (50%) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left: Streaming Incident Feed (7 cols on lg) */}
+          <div className="lg:col-span-7">
+            <StreamingIncidentFeed
+              alerts={displayedAlerts}
+              onSelectAlertForAnalysis={handleSelectAlertForAnalysis}
+              selectedAlertFlowId={selectedAlert?.flow_id}
+            />
+          </div>
+
+          {/* Right: AI Intelligence Analyst Card powered by Google Gemini (5 cols on lg) */}
+          <div className="lg:col-span-5">
+            <GeminiAnalystCard
+              currentAlert={selectedAlert}
+              assessment={assessment}
+              loading={analystLoading}
+              onRefreshAssessment={handleRefreshCurrentAssessment}
+            />
+          </div>
+        </div>
+
+        {/* Footer info banner */}
+        <footer className="pt-4 border-t border-slate-900/80 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-slate-500 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span>UNIDIRECTIONAL PASSIVE MIRRORING ACTIVE &bull; HARDWARE RX AIR-GAP EMULATED</span>
+          </div>
+          <div>
+            STRATA Security Enclave &bull; Strictly Zero Return Path &bull; Metadata Inspection SLA &lt; 50ms
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }

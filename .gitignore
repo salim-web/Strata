@@ -1,0 +1,41 @@
+# ==============================================================================
+# STRATA - Git Ignore Rules
+# ==============================================================================
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Node.js & Next.js Frontend
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.joblib
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
