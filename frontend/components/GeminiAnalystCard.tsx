@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Sparkles,
   Bot,
@@ -12,7 +12,6 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { StandardizedAlert, GeminiAssessment } from '../lib/mockData';
-import { requestGeminiAssessment } from '../lib/api';
 
 interface GeminiAnalystCardProps {
   currentAlert: StandardizedAlert | null;
@@ -28,24 +27,24 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
   onRefreshAssessment,
 }) => {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-slate-900/90 via-[#070d18] to-slate-950 p-5 shadow-[0_0_30px_rgba(6,182,212,0.12)] backdrop-blur-xl">
-      {/* Glow decorative corner */}
-      <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-cyan-500/10 blur-3xl" />
-
+    <div className="relative overflow-hidden rounded-2xl border border-[#E5E5F0] dark:border-white/5 bg-white dark:bg-[#26282E] p-5 shadow-saas-light dark:shadow-saas-dark transition-colors">
       {/* Card Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cyan-950/60 pb-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E5F0] dark:border-white/5 pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold font-mono text-white tracking-wide">
-                AI Intelligence Analyst 
+              <h3 className="text-sm font-bold tracking-tight text-[#1E1E2D] dark:text-white">
+                AI Threat Intelligence Analyst
               </h3>
+              <span className="hidden sm:inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-bold text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">
+                Cognitive Enclave
+              </span>
             </div>
-            <p className="text-[11px] font-mono text-slate-400">
-              Zero-decryption threat assessment grounded strictly in passive evidence attributes
+            <p className="text-[11px] font-medium text-[#8A8FA3] dark:text-[#9CA3AF]">
+              Zero-decryption threat assessment grounded in passive metadata attributes
             </p>
           </div>
         </div>
@@ -54,9 +53,9 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
           <button
             onClick={onRefreshAssessment}
             disabled={loading || !currentAlert}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 px-3 py-1.5 text-xs font-mono font-semibold text-cyan-300 hover:bg-cyan-900/40 hover:border-cyan-400 disabled:opacity-50 transition shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 px-4 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition-all cursor-pointer"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>{loading ? 'Evaluating...' : 'Re-Evaluate with Gemini'}</span>
           </button>
         )}
@@ -65,59 +64,65 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
       {/* Body Content */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="relative mb-3">
-            <Bot className="h-8 w-8 text-cyan-400 animate-bounce" />
-            <div className="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping" />
+          <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400">
+            <Bot className="h-6 w-6 animate-bounce" />
           </div>
-          <span className="text-xs font-mono font-semibold text-cyan-300">
+          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
             Querying Google Gemini Threat Intelligence Engine...
           </span>
-          <span className="text-[11px] font-mono text-slate-500 mt-1">
+          <span className="text-[11px] font-medium text-[#8A8FA3] dark:text-[#9CA3AF] mt-1">
             Synthesizing passive metadata &bull; MITRE ATT&CK correlation &bull; Zero return path
           </span>
         </div>
       ) : assessment ? (
-        <div className="mt-4 space-y-4 text-xs font-mono">
+        <div className="mt-4 space-y-4 text-xs">
           {/* Target Flow & Threat Banner */}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-950/80 border border-slate-800 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-[#F8F8FC] dark:bg-[#1E1F24] p-3 font-mono">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">Target Flow:</span>
-              <span className="font-bold text-slate-200 select-all">{assessment.flow_id || currentAlert?.flow_id}</span>
+              <span className="text-[#8A8FA3] dark:text-[#9CA3AF]">Target Flow:</span>
+              <span className="font-bold text-[#1E1E2D] dark:text-white select-all">
+                {assessment.flow_id || currentAlert?.flow_id}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Model:</span>
-              <span className="font-semibold text-cyan-400">{assessment.model_used}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#8A8FA3] dark:text-[#9CA3AF]">Model:</span>
+              <span className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-400">
+                {assessment.model_used}
+              </span>
             </div>
           </div>
 
           {/* MITRE ATT&CK Mapping Grid */}
-          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3">
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-2 flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-cyan-400" />
+          <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-[#F8F8FC] dark:bg-[#1E1F24] p-3.5">
+            <div className="text-[10px] uppercase font-bold text-[#8A8FA3] dark:text-[#9CA3AF] mb-2.5 flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>MITRE ATT&CK TTP Mapping</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Tactic</span>
-                <span className="font-bold text-amber-400 break-words block leading-snug">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-white dark:bg-[#26282E] p-3 shadow-saas-light-sm dark:shadow-saas-dark-sm">
+                <span className="text-[10px] uppercase font-semibold text-[#8A8FA3] dark:text-[#9CA3AF] block mb-1">
+                  Tactic
+                </span>
+                <span className="font-bold text-amber-600 dark:text-amber-400 block leading-snug">
                   {assessment.mitre_attack_mapping.tactic}
                 </span>
               </div>
 
-              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Technique ID</span>
-                <span className="font-bold text-cyan-400 font-mono break-words block leading-snug">
+              <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-white dark:bg-[#26282E] p-3 shadow-saas-light-sm dark:shadow-saas-dark-sm">
+                <span className="text-[10px] uppercase font-semibold text-[#8A8FA3] dark:text-[#9CA3AF] block mb-1">
+                  Technique ID
+                </span>
+                <span className="font-bold font-mono text-indigo-600 dark:text-indigo-400 block leading-snug">
                   {assessment.mitre_attack_mapping.technique_id}
                 </span>
               </div>
 
-              <div className="col-span-1 sm:col-span-2 rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Technique Name</span>
-                <span
-                  className="font-bold text-slate-100 break-words leading-relaxed block text-xs sm:text-[13px]"
-                  title={assessment.mitre_attack_mapping.technique_name}
-                >
+              <div className="col-span-1 sm:col-span-2 rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-white dark:bg-[#26282E] p-3 shadow-saas-light-sm dark:shadow-saas-dark-sm">
+                <span className="text-[10px] uppercase font-semibold text-[#8A8FA3] dark:text-[#9CA3AF] block mb-1">
+                  Technique Name
+                </span>
+                <span className="font-bold text-[#1E1E2D] dark:text-white block">
                   {assessment.mitre_attack_mapping.technique_name}
                 </span>
               </div>
@@ -125,38 +130,38 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
           </div>
 
           {/* Threat Hypothesis */}
-          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center gap-1.5">
-              <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
+          <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-[#F8F8FC] dark:bg-[#1E1F24] p-3.5">
+            <div className="text-[10px] uppercase font-bold text-[#8A8FA3] dark:text-[#9CA3AF] mb-1.5 flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
               <span>Analyst Threat Hypothesis</span>
             </div>
-            <p className="text-slate-300 leading-relaxed font-sans text-xs">
+            <p className="text-[#1E1E2D] dark:text-[#F3F4F6] leading-relaxed text-xs">
               {assessment.threat_hypothesis}
             </p>
           </div>
 
           {/* Passive Evidence Breakdown */}
-          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center gap-1.5">
-              <Terminal className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Passive Evidence Evaluation (Zero Payload Decryption)</span>
+          <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-[#F8F8FC] dark:bg-[#1E1F24] p-3.5">
+            <div className="text-[10px] uppercase font-bold text-[#8A8FA3] dark:text-[#9CA3AF] mb-1.5 flex items-center gap-1.5">
+              <Terminal className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Passive Evidence Evaluation (Zero Decryption)</span>
             </div>
-            <div className="rounded bg-slate-900/90 border border-slate-800 p-2 text-cyan-300 font-mono text-[11px] leading-normal">
+            <div className="rounded-lg bg-white dark:bg-[#26282E] border border-[#E5E5F0] dark:border-white/5 p-2.5 text-[11px] font-mono font-medium text-indigo-700 dark:text-indigo-300 leading-normal">
               {assessment.passive_evidence_analysis}
             </div>
           </div>
 
-          {/* Passive Monitoring Recommendations (Strictly Out-of-band / No inline blocking) */}
-          <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-2 flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Recommended Passive Actions (Strictly Non-Intrusive)</span>
+          {/* Passive Monitoring Recommendations */}
+          <div className="rounded-xl border border-[#E5E5F0] dark:border-white/5 bg-[#F8F8FC] dark:bg-[#1E1F24] p-3.5">
+            <div className="text-[10px] uppercase font-bold text-[#8A8FA3] dark:text-[#9CA3AF] mb-2 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Recommended Non-Intrusive Actions (Zero Return Path)</span>
             </div>
 
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {assessment.passive_monitoring_recommendations.map((rec, i) => (
-                <li key={i} className="flex items-start gap-2 text-slate-300 font-sans text-xs leading-normal">
-                  <ArrowRight className="h-3 w-3 text-cyan-400 mt-0.5 shrink-0" />
+                <li key={i} className="flex items-start gap-2 text-[#1E1E2D] dark:text-[#F3F4F6] text-xs leading-normal">
+                  <ArrowRight className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
                   <span>{rec}</span>
                 </li>
               ))}
@@ -164,8 +169,13 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
           </div>
         </div>
       ) : (
-        <div className="py-12 text-center text-xs font-mono text-slate-500">
-          Select an incident from the stream above to generate a Google Gemini Threat Intelligence Assessment.
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F8F8FC] dark:bg-[#1E1F24] text-[#8A8FA3] dark:text-[#9CA3AF] mb-2">
+            <Bot className="h-6 w-6" />
+          </div>
+          <p className="text-xs font-medium text-[#8A8FA3] dark:text-[#9CA3AF]">
+            Select an incident from the stream to generate a Google Gemini Threat Intelligence Assessment.
+          </p>
         </div>
       )}
     </div>
