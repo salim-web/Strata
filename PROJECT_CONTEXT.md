@@ -3,7 +3,7 @@
 **System Designation:** Autonomous Passive Network Threat Intelligence Enclave  
 **Operating Constraint:** Unidirectional Data Diode / Passive Optical Mirroring (Hardware RX-Only)  
 **Classification:** Open Telemetry / Air-Gapped Surveillance / Zero Return Path  
-**Version:** 2.0.0-PROD  
+**Version:** 1.0.0-PROD  
 
 ---
 

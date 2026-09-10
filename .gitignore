@@ -33,6 +33,7 @@ env/
 .coverage
 htmlcov/
 *.joblib
+!backend/ml_engine/threat_model.joblib
 
 # OS & Editor
 .DS_Store

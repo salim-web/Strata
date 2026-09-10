@@ -1,6 +1,6 @@
 import time
 import asyncio
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from collections import deque
 from backend.ingest.models import FlowRecord, EnclaveKPIs
 
@@ -66,7 +66,7 @@ class IngestReceiver:
 
         return count
 
-    def get_throughput_stats(self) -> Tuple_Stats:
+    def get_throughput_stats(self) -> Tuple[float, float]:
         """Calculate sustained flows/sec and sustained Mbps over rolling window."""
         now = time.time()
         # Only recalculate if 100ms has elapsed
