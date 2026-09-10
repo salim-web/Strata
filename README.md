@@ -41,15 +41,54 @@ STRATA operates exclusively as a one-directional streaming consumer of passive n
 │  └──────────────────────────────────────┬──────────────────────────────────────────────┘  │
 │                                         ▼                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ 4. AIR-GAPPED DATA DIODE INTELLIGENCE CONSOLE (Next.js 14 & Tailwind)               │  │
-│  │    • Diode Read-Only Status & Zero Return Path Badge                                │  │
-│  │    • Telemetry KPIs: Sustained Throughput (Flows/s & Mbps), Ingested Packets, SLA   │  │
-│  │    • Live Multi-Threat Radar (6-Vector Confidence, Active Count & Evidence Gauges)  │  │
-│  │    • Real-Time Streaming Incident Feed & Gemini AI Analyst Card                     │  │
-│  │    • On-Demand Threat Burst Injection Control (Instantaneous 6-vector scoring)      │  │
+│  │ 4. ENTERPRISE MULTI-PAGE AIR-GAPPED SAAS CONSOLE (Next.js 14 App Router)            │  │
+│  │    • Floating "Island Dock" Vertical Navigation with Active Route Detection         │  │
+│  │    • Soft-Neomorphic SaaS Design with 100% Light & Dark Mode Parity                 │  │
+│  │    • 5 Dedicated App Router Workspaces: Overview, Radar, Incidents, AI, Controls    │  │
+│  │    • Real-Time Telemetry & Alerts Synced via Global React Context Provider          │  │
 │  └─────────────────────────────────────────────────────────────────────────────────────┘  │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🖥️ Modular Multi-Page Architecture & Floating Island Dock
+
+The STRATA frontend is architected as an enterprise-grade, multi-page Next.js 14 application following a **soft-neomorphic SaaS theme** with full **Light Mode** and **Dark Mode** parity:
+
+### 🏝️ The Floating "Island Dock" (`IslandDock.tsx`)
+A persistent, detached vertical navigation island positioned on the left viewport margin:
+- **Active Route Highlighting**: Dynamic detection via Next.js `usePathname()` with saturated indigo capsules and micro-indicators.
+- **Sun/Moon Theme Switch Pill**: Smooth, animated toggle with instant transitions and `localStorage` state persistence.
+- **Live SLA Pipeline Gauge**: Real-time bounded latency monitor (`SLA: X.Xms < 50ms`) with pulsing health indicator.
+- **Quick Burst Trigger**: One-click threat burst injection directly from the global navigation dock.
+
+### 🗂️ 5 Dedicated App Router Routes
+
+| Route | Workspace | Purpose & Core Capabilities |
+| :--- | :--- | :--- |
+| **`/`** | **Executive Overview** | High-level SOC situational awareness: Enclave KPIs (Ingest rate, Bandwidth, Packets, SLA Latency), multi-threat posture overview, recent anomaly snapshot table, and quick workbench jump cards. |
+| **`/radar`** | **6-Vector Threat Radar** | Deep-dive vector analysis across DDoS, C2 Beaconing, DNS Tunnelling, Encrypted Malware (JA3/JA4), Recon Scanning, and Data Exfiltration with baseline vs. anomaly mathematical matrices. |
+| **`/incidents`** | **Incident Feed & Forensics** | Full-width real-time incident table: Multi-parameter search, severity pill filters (`ALL`, `CRITICAL`, `HIGH`, `MEDIUM`), raw evidence JSON inspector, and one-click JSON/CSV export actions. |
+| **`/analyst`** | **Cognitive Threat Analyst** | AI Investigation Workbench powered by Google Gemini: Incident selector drawer, MITRE ATT&CK TTP matrix, threat hypotheses, zero-decryption passive evidence breakdown, and non-intrusive action playbooks. |
+| **`/enclave`** | **Diode Health & Controls** | Hardware RX-only optical tap verification, zero return-path audit, volume-controlled threat burst generator (20 to 250 flows), and ML ensemble weights status (`threat_model.joblib`). |
+
+---
+
+## 🎨 Design Tokens & Theming
+
+STRATA features a soft-neomorphic SaaS aesthetic with geometric typography (`Plus Jakarta Sans`), large rounded cards (`rounded-2xl` / `16px–20px`), floating pill badges, and circular icon containers:
+
+- **Light Mode**:
+  - **Canvas Background**: Soft ambient lilac-gray (`#ECEBF5`)
+  - **Card Surfaces**: Pure white (`#FFFFFF`) with diffuse drop shadows (`0 8px 24px -4px rgba(100, 100, 130, 0.08)`) and hairline borders (`#E5E5F0`)
+  - **Typography**: Deep charcoal slate (`#1E1E2D`) with muted metadata in cool gray (`#8A8FA3`)
+  - **Primary Accent**: Vibrant electric indigo/violet (`#6366F1`)
+- **Dark Mode**:
+  - **Canvas Background**: Deep charcoal slate (`#1C1D21`)
+  - **Card Surfaces**: Elevated charcoal-gray panels (`#26282E`) with ambient shadows (`0 8px 24px -4px rgba(0, 0, 0, 0.4)`) and minimal borders (`border-white/5`)
+  - **Typography**: Crisp off-white (`#F3F4F6`) with secondary metrics in soft slate (`#9CA3AF`)
+  - **Primary Accent**: Luminous lavender/violet (`#818CF8`)
 
 ---
 
@@ -70,10 +109,10 @@ STRATA inspects passive network telemetry across 6 dedicated threat categories w
 
 ## ⚡ Real-Time Threat Burst Injection
 
-Operators can inject synthetic traffic bursts for any of the 6 threat vectors directly from the console header to observe real-time ML scoring:
+Operators can inject synthetic traffic bursts for any of the 6 threat vectors directly from the Island Dock or Enclave Controls page:
 
-1. **Dedicated Ingestion Priority Queue**: Injected burst packets bypass ambient queuing via `IngestReceiver.priority_queue` to guarantee immediate next-tick processing.
-2. **Sliding-Window State Priming**: The sliding window aggregator primes historical state (e.g. periodic beacon intervals or port scan targets) so that burst flows immediately trigger high-confidence detections.
+1. **Dedicated Priority Queue**: Injected burst packets bypass ambient queuing via `IngestReceiver.priority_queue` for instantaneous scoring.
+2. **Sliding-Window State Priming**: The sliding window primes historical state so that burst flows immediately trigger high-confidence detections.
 3. **Feed Dominance**: Within 150ms of injection, the injected threat vector achieves $\ge 98\%$ feed dominance in the Streaming Incident Feed and increments the Multi-Threat Radar counter.
 
 ---
