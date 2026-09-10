@@ -9,9 +9,7 @@
 
 ## 📖 Executive Summary & Architectural Pivot
 
-**STRATA** originally began as an inline API reverse-proxy with active rate limiting, dynamic IP blacklisting, honeypot traps, and HTTP 403/429 mitigation. 
-
-In **v2.0**, the system underwent a **strict architectural pivot** into an **autonomous, read-only "Passive Network Threat Intelligence Enclave"** operating under physical **unidirectional data diode / passive optical tap** constraints:
+**STRATA** an **autonomous, read-only "Passive Network Threat Intelligence Enclave"** operating under physical **unidirectional data diode / passive optical tap** constraints:
 
 1. **Zero Return Path Enforcement**:
    - Monitored networks are tapped via physical or virtual optical mirrors (RX-only fibers with the transmit fiber physically severed).
