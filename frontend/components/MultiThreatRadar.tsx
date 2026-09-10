@@ -106,7 +106,7 @@ export const MultiThreatRadar: React.FC<MultiThreatRadarProps> = ({
             <Radar className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '6s' }} />
           </div>
           <h2 className="text-sm font-mono font-bold tracking-wider text-slate-200 uppercase">
-            Passive Multi-Threat Radar // 6-Vector Metadata Ensemble
+            Passive Multi-Threat Radar
           </h2>
         </div>
         <span className="text-[11px] font-mono text-slate-400">

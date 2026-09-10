@@ -41,11 +41,8 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold font-mono text-white tracking-wide">
-                AI Intelligence Analyst // Google Gemini
+                AI Intelligence Analyst 
               </h3>
-              <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono font-bold text-cyan-400 border border-cyan-500/20">
-                Cognitive Enclave
-              </span>
             </div>
             <p className="text-[11px] font-mono text-slate-400">
               Zero-decryption threat assessment grounded strictly in passive evidence attributes
@@ -100,20 +97,27 @@ export const GeminiAnalystCard: React.FC<GeminiAnalystCardProps> = ({
               <span>MITRE ATT&CK TTP Mapping</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2">
-                <span className="text-[10px] text-slate-400 block mb-0.5">Tactic</span>
-                <span className="font-bold text-amber-400">{assessment.mitre_attack_mapping.tactic}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Tactic</span>
+                <span className="font-bold text-amber-400 break-words block leading-snug">
+                  {assessment.mitre_attack_mapping.tactic}
+                </span>
               </div>
 
-              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2">
-                <span className="text-[10px] text-slate-400 block mb-0.5">Technique ID</span>
-                <span className="font-bold text-cyan-400">{assessment.mitre_attack_mapping.technique_id}</span>
+              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Technique ID</span>
+                <span className="font-bold text-cyan-400 font-mono break-words block leading-snug">
+                  {assessment.mitre_attack_mapping.technique_id}
+                </span>
               </div>
 
-              <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2">
-                <span className="text-[10px] text-slate-400 block mb-0.5">Technique Name</span>
-                <span className="font-bold text-slate-200 truncate block">
+              <div className="col-span-1 sm:col-span-2 rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Technique Name</span>
+                <span
+                  className="font-bold text-slate-100 break-words leading-relaxed block text-xs sm:text-[13px]"
+                  title={assessment.mitre_attack_mapping.technique_name}
+                >
                   {assessment.mitre_attack_mapping.technique_name}
                 </span>
               </div>

@@ -134,7 +134,7 @@ export async function requestGeminiAssessment(alert: StandardizedAlert): Promise
     mitre_attack_mapping: {
       tactic: alert.threat_class === 'VOLUMETRIC_DDOS' ? 'Impact' :
               alert.threat_class === 'BOTNET_C2' ? 'Command and Control' :
-              alert.threat_class === 'DGA_DNS_TUNNEL' ? 'Command and Control / Exfiltration' :
+              alert.threat_class === 'DGA_DNS_TUNNEL' ? 'Exfiltration' :
               alert.threat_class === 'ENCRYPTED_MALWARE' ? 'Defense Evasion' :
               alert.threat_class === 'RECON_SCAN' ? 'Reconnaissance' : 'Exfiltration',
       technique_id: alert.threat_class === 'VOLUMETRIC_DDOS' ? 'T1498.001' :

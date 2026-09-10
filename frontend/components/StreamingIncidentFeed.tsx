@@ -74,7 +74,7 @@ export const StreamingIncidentFeed: React.FC<StreamingIncidentFeedProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold font-mono text-white tracking-wide">
-                Streaming Incident Feed // Standardized Alert Schema
+                Streaming Incident Feed 
               </h3>
               <p className="text-[11px] font-mono text-slate-400">
                 Live passive telemetry events &bull; Bounded Latency &bull; Non-reloading stream

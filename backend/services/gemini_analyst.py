@@ -20,7 +20,7 @@ MITRE_MAPPINGS = {
         "primary_vector": "Low-jitter periodic heartbeat to external C2 controller"
     },
     "DGA_DNS_TUNNEL": {
-        "tactic": "Command and Control / Exfiltration",
+        "tactic": "Exfiltration",
         "technique_id": "T1071.004",
         "technique_name": "Application Layer Protocol: DNS Tunnelling / DGA",
         "primary_vector": "High-entropy domain name query strings & TXT payload encoding"
