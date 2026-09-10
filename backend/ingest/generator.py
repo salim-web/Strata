@@ -33,6 +33,10 @@ def generate_dga_domain() -> str:
     return f"{label}.exfil-intel.{tld}"
 
 
+NORMAL_SRC_IPS = [f"10.0.{s}.{h}" for s in [1, 2] for h in range(1, 15)]
+NORMAL_DST_IPS = ["198.51.100.10", "198.51.100.11", "203.0.113.20", "203.0.113.21", "8.8.8.8", "1.1.1.1", "142.250.190.46"]
+
+
 def create_flow_record(threat_type: str) -> FlowRecord:
     """Generates a FlowRecord for a specific threat vector or normal baseline traffic."""
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -60,6 +64,8 @@ def create_flow_record(threat_type: str) -> FlowRecord:
     dns_query_type = None
 
     if threat_type == "NORMAL":
+        src_ip = random.choice(NORMAL_SRC_IPS)
+        dst_ip = generate_random_ip()
         is_tls = True
         tls_sni = random.choice(["api.github.com", "cloudflare.com", "google.com", "aws.amazon.com", "datadoghq.com"])
         ja3_hash = "669181e23d9be9636fc064d23458f8d4"
@@ -70,11 +76,14 @@ def create_flow_record(threat_type: str) -> FlowRecord:
     elif threat_type == "VOLUMETRIC_DDOS":
         dst_ip = "198.51.100.25"
         dst_port = 443
+        is_tls = False
+        ja3_hash = None
+        ja4_fingerprint = None
         bytes_sent = random.randint(40, 80)
         bytes_recv = 0
-        pkts_sent = random.randint(10, 40)
+        pkts_sent = random.randint(15, 50)
         pkts_recv = 0
-        tcp_flags = {"SYN": random.randint(10, 30), "ACK": 0, "FIN": 0, "RST": 0, "PSH": 0}
+        tcp_flags = {"SYN": random.randint(15, 40), "ACK": 0, "FIN": 0, "RST": 0, "PSH": 0}
 
     elif threat_type == "BOTNET_C2":
         src_ip = "10.0.4.88"
@@ -82,12 +91,12 @@ def create_flow_record(threat_type: str) -> FlowRecord:
         dst_port = 8443
         is_tls = True
         tls_sni = None
-        ja3_hash = "e7d705a39f6c0a54e601275bfbb0a221"
+        ja3_hash = "c2_heartbeat_pulse_session_ja3"
         ja4_fingerprint = "t13d1516h2_c2_botnet_pulse"
         bytes_sent = 240
         bytes_recv = 180
-        packet_sizes = [240, -180, 64, -64]
-        packet_iat_deltas = [0.002, 0.003, 0.001]
+        packet_sizes = [240, -180, 64, -64, 240, -180]
+        packet_iat_deltas = [2.50, 2.51, 2.49, 2.50, 2.50]
 
     elif threat_type == "DGA_DNS_TUNNEL":
         src_ip = "10.0.2.14"
@@ -114,7 +123,7 @@ def create_flow_record(threat_type: str) -> FlowRecord:
     elif threat_type == "RECON_SCAN":
         src_ip = "192.0.2.45"
         dst_ip = "10.0.1.10"
-        dst_port = random.choice(SCAN_TARGET_PORTS)
+        dst_port = random.randint(20, 1024)
         tcp_flags = {"SYN": 1, "ACK": 0, "FIN": 0, "RST": 0, "PSH": 0}
         bytes_sent = 60
         bytes_recv = 0
@@ -166,25 +175,25 @@ class AmbientTelemetryEmitter:
     (target rate: ~2,500 flows/sec) even when no external replay script is running.
     """
 
-    def __init__(self, target_rate: int = 2500):
+    def __init__(self, target_rate: int = 500):
         self.target_rate = target_rate
         self.is_running = False
         self._task: Optional[asyncio.Task] = None
         self.threat_weights = [
-            ("NORMAL", 0.65),
-            ("VOLUMETRIC_DDOS", 0.08),
-            ("BOTNET_C2", 0.08),
-            ("DGA_DNS_TUNNEL", 0.07),
-            ("ENCRYPTED_MALWARE", 0.05),
-            ("RECON_SCAN", 0.04),
-            ("DATA_EXFIL", 0.03)
+            ("NORMAL", 0.994),
+            ("VOLUMETRIC_DDOS", 0.001),
+            ("BOTNET_C2", 0.001),
+            ("DGA_DNS_TUNNEL", 0.001),
+            ("ENCRYPTED_MALWARE", 0.001),
+            ("RECON_SCAN", 0.001),
+            ("DATA_EXFIL", 0.001)
         ]
 
     async def start(self):
         if not self.is_running:
             self.is_running = True
             self._task = asyncio.create_task(self._generator_loop())
-            logger.info("Continuous Ambient Telemetry Generator started (~2,500 flows/sec).")
+            logger.info(f"Continuous Ambient Telemetry Generator started (~{self.target_rate} flows/sec).")
 
     async def stop(self):
         self.is_running = False
@@ -198,7 +207,7 @@ class AmbientTelemetryEmitter:
             logger.info("Continuous Ambient Telemetry Generator stopped.")
 
     async def _generator_loop(self):
-        batch_size = 125
+        batch_size = 50
         threat_types, weights = zip(*self.threat_weights)
         
         while self.is_running:
@@ -219,7 +228,7 @@ class AmbientTelemetryEmitter:
                 if sleep_time > 0.001:
                     await asyncio.sleep(sleep_time)
                 else:
-                    await asyncio.sleep(0.002)
+                    await asyncio.sleep(0.005)
 
             except asyncio.CancelledError:
                 break
@@ -229,4 +238,4 @@ class AmbientTelemetryEmitter:
 
 
 # Singleton ambient generator instance
-ambient_emitter = AmbientTelemetryEmitter(target_rate=2500)
+ambient_emitter = AmbientTelemetryEmitter(target_rate=500)

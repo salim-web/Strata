@@ -1,6 +1,7 @@
 import math
 import time
 import collections
+from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 from backend.ingest.models import FlowRecord
@@ -19,6 +20,8 @@ class SlidingWindowAggregator:
         
         # Global rolling window: deque of (timestamp, FlowRecord)
         self.global_flows: collections.deque = collections.deque(maxlen=10000)
+        self._last_ddos_calc_time: float = 0.0
+        self._cached_ddos_metrics: Optional[Dict[str, float]] = None
         
         # Entity-indexed sliding windows:
         # src_ip -> deque of (timestamp, dst_ip, dst_port, bytes_sent, bytes_recv, syn, ack)
@@ -66,7 +69,16 @@ class SlidingWindowAggregator:
 
     def add_flow(self, flow: FlowRecord, current_time: Optional[float] = None) -> None:
         """Add flow to sliding window state."""
-        now = current_time or time.time()
+        if current_time is not None:
+            now = current_time
+        elif flow.timestamp:
+            try:
+                now = datetime.fromisoformat(flow.timestamp.replace("Z", "+00:00")).timestamp()
+            except Exception:
+                now = time.time()
+        else:
+            now = time.time()
+
         self.global_flows.append((now, flow))
 
         # Update per-source tracking
@@ -95,8 +107,10 @@ class SlidingWindowAggregator:
         Compute rolling flow rate, SYN-to-ACK ratio, and Source IP Shannon entropy.
         """
         now = time.time()
+        if (now - self._last_ddos_calc_time < 0.05) and (self._cached_ddos_metrics is not None):
+            return self._cached_ddos_metrics
+
         cutoff = now - self.window_seconds
-        
         valid_flows = [f for t, f in self.global_flows if t >= cutoff]
         total_flows = len(valid_flows)
         flow_rate = total_flows / max(1.0, self.window_seconds)
@@ -121,13 +135,16 @@ class SlidingWindowAggregator:
                 if p_i > 0:
                     entropy -= p_i * math.log2(p_i)
 
-        return {
+        metrics = {
             "flow_rate_per_sec": round(flow_rate, 2),
             "syn_ack_ratio": round(syn_ack_ratio, 2),
             "src_ip_entropy": round(entropy, 4),
             "total_window_flows": total_flows,
             "unique_src_ips": len(src_ip_counts)
         }
+        self._cached_ddos_metrics = metrics
+        self._last_ddos_calc_time = now
+        return metrics
 
     # =========================================================================
     # 2. Botnet C2 Beaconing Feature Extraction
@@ -137,7 +154,7 @@ class SlidingWindowAggregator:
         Calculate inter-arrival time (IAT) variance and periodicity (FFT peak power ratio)
         to low-entropy destination IPs.
         """
-        timestamps = list(self.dst_ip_timestamps.get(dst_ip, []))
+        timestamps = sorted(list(self.dst_ip_timestamps.get(dst_ip, [])))
         if len(timestamps) < 4:
             return {
                 "iat_variance": 999.0,
@@ -147,30 +164,44 @@ class SlidingWindowAggregator:
             }
 
         # Calculate consecutive IAT deltas (seconds)
-        iats = np.diff(np.array(timestamps))
+        raw_iats = np.diff(np.array(timestamps))
+        iats = raw_iats[raw_iats >= 0.001]
+        if len(iats) < 3:
+            return {
+                "iat_variance": 999.0,
+                "iat_mean": 0.0,
+                "periodicity_score": 0.0,
+                "sample_count": len(timestamps)
+            }
+
         iat_variance = float(np.var(iats))
         iat_mean = float(np.mean(iats))
         
-        # Periodicity using FFT or normalized autocorrelation peak
+        # Periodicity: Only evaluate for genuine inter-arrival intervals (>= 0.05s)
+        # Sub-millisecond batch packets (< 0.05s) indicate flood bursts, NOT periodic beacons
         periodicity_score = 0.0
-        if len(iats) >= 6 and iat_mean > 0.05:
+        if len(iats) >= 3 and iat_mean >= 0.05:
             # Low coefficient of variation (sigma / mu) indicates steady beacon
             cv = math.sqrt(iat_variance) / max(0.001, iat_mean)
-            cv_score = max(0.0, min(1.0, 1.0 - (cv / 1.5)))
+            cv_score = max(0.0, min(1.0, 1.0 - (cv / 1.0)))
 
-            # Normalized Autocorrelation at lag 1 & lag 2
-            try:
-                centered = iats - iat_mean
-                var = np.sum(centered ** 2)
-                if var > 1e-6:
-                    r1 = np.sum(centered[:-1] * centered[1:]) / var
-                    periodicity_score = max(0.0, min(1.0, (cv_score * 0.6) + (max(0.0, float(r1)) * 0.4)))
-                else:
-                    periodicity_score = 0.98  # Exact timing match!
-            except Exception:
-                periodicity_score = cv_score
-        elif len(iats) >= 3 and iat_variance < 0.05:
-            periodicity_score = 0.85
+            if cv < 0.25 or iat_variance < 0.01:
+                periodicity_score = max(0.85, cv_score)
+            elif len(iats) >= 6:
+                try:
+                    centered = iats - iat_mean
+                    var = np.sum(centered ** 2)
+                    if var > 1e-6:
+                        r1 = np.sum(centered[:-1] * centered[1:]) / var
+                        periodicity_score = max(0.0, min(1.0, (cv_score * 0.6) + (max(0.0, float(r1)) * 0.4)))
+                    else:
+                        periodicity_score = 0.98  # Exact timing match!
+                except Exception:
+                    periodicity_score = cv_score
+            elif iat_variance < 0.05:
+                periodicity_score = 0.85
+        else:
+            periodicity_score = 0.0
 
         return {
             "iat_variance": round(iat_variance, 6),

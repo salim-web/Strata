@@ -23,7 +23,7 @@ class PassiveTelemetryPipeline:
 
     def __init__(self):
         self.aggregator = SlidingWindowAggregator(window_seconds=10.0)
-        self.alerts_buffer: deque = deque(maxlen=250)
+        self.alerts_buffer: deque = deque(maxlen=1000)
         self.is_running = False
         self._worker_task: Optional[asyncio.Task] = None
         
@@ -93,26 +93,30 @@ class PassiveTelemetryPipeline:
         """
         while self.is_running:
             try:
-                # Wait for at least one item
-                first_record: FlowRecord = await receiver_instance.queue.get()
-                records = [first_record]
+                records = []
+                # 1. Drain priority burst queue first (immediate processing)
+                while receiver_instance.priority_queue and len(records) < 150:
+                    records.append(receiver_instance.priority_queue.popleft())
 
-                # Greedily pull remaining items up to batch size 300
-                while len(records) < 300:
-                    try:
-                        record = receiver_instance.queue.get_nowait()
-                        records.append(record)
-                    except asyncio.QueueEmpty:
-                        break
+                # 2. If no priority records, pull from standard streaming queue
+                if not records:
+                    first_record: FlowRecord = await receiver_instance.queue.get()
+                    records = [first_record]
+                    while len(records) < 150:
+                        try:
+                            record = receiver_instance.queue.get_nowait()
+                            records.append(record)
+                        except asyncio.QueueEmpty:
+                            break
 
                 t0 = time.perf_counter()
+
+                # Compute sliding-window DDoS metrics once for the batch
+                ddos_metrics = self.aggregator.compute_ddos_metrics()
 
                 # Process batch through sliding window & ML ensemble
                 for flow in records:
                     self.aggregator.add_flow(flow)
-
-                    # 1. DDoS features
-                    ddos_metrics = self.aggregator.compute_ddos_metrics()
 
                     # 2. C2 Beaconing features
                     c2_metrics = self.aggregator.compute_beaconing_metrics(flow.dst_ip)

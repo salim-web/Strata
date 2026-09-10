@@ -50,10 +50,36 @@ async def trigger_threat_burst(payload: ThreatBurstPayload = Body(...)):
     """
     Triggers an immediate burst of synthetic passive telemetry across any of the 6 threat vectors.
     """
+    import time
     from backend.ingest.generator import create_flow_record
     t_class = payload.threat_class.upper()
-    flows = [create_flow_record(t_class) for _ in range(max(1, min(250, payload.count)))]
-    count = await receiver_instance.ingest_batch(flows)
+    burst_count = max(1, min(250, payload.count))
+    now = time.time()
+    flows = []
+
+    if t_class == "BOTNET_C2":
+        # Prime the sliding window with periodic heartbeat intervals so all burst flows score immediately
+        ts_deque = pipeline_instance.aggregator.dst_ip_timestamps["198.51.100.199"]
+        ts_deque.clear()
+        for k in range(4, 0, -1):
+            ts_deque.append(now - ((burst_count + k) * 0.10))
+    elif t_class == "RECON_SCAN":
+        # Ensure fanout baseline is primed so every burst flow immediately alerts
+        history = pipeline_instance.aggregator.src_ip_history["192.0.2.45"]
+        history.clear()
+        for p in [21, 22, 23, 25, 80, 110, 143, 443, 8080]:
+            history.append((now - 1.0, "10.0.1.10", p, 60, 0, 1, 1, 1, 0))
+
+    for i in range(burst_count):
+        flow = create_flow_record(t_class)
+        if t_class == "BOTNET_C2":
+            # Space out beaconing timestamps across the window to represent periodic heartbeats
+            offset = (burst_count - 1 - i) * 0.10
+            flow_ts = datetime.fromtimestamp(now - offset, timezone.utc).isoformat()
+            flow.timestamp = flow_ts
+        flows.append(flow)
+
+    count = await receiver_instance.ingest_burst(flows)
     return {"status": "burst_injected", "threat_class": t_class, "count": count}
 
 

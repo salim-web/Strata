@@ -14,6 +14,7 @@ class IngestReceiver:
 
     def __init__(self, queue_maxsize: int = 50000):
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=queue_maxsize)
+        self.priority_queue: deque = deque()
         
         # Cumulative counters
         self.total_flows: int = 0
@@ -41,6 +42,27 @@ class IngestReceiver:
             return True
         except asyncio.QueueFull:
             return False
+
+    async def ingest_burst(self, records: List[FlowRecord]) -> int:
+        """Priority ingest for synthetic threat bursts to ensure immediate real-time ML scoring."""
+        count = 0
+        now = time.time()
+        batch_bytes = 0
+        batch_pkts = 0
+
+        for record in records:
+            self.priority_queue.append(record)
+            count += 1
+            batch_pkts += (record.packets_sent or 1) + (record.packets_recv or 0)
+            batch_bytes += (record.bytes_sent or 0) + (record.bytes_recv or 0)
+
+        self.total_flows += count
+        self.total_packets += batch_pkts
+        self.total_bytes += batch_bytes
+        if count > 0:
+            self._rate_window.append((now, count, batch_bytes))
+
+        return count
 
     async def ingest_batch(self, records: List[FlowRecord]) -> int:
         """Batch ingest for high-throughput streaming (2,000 - 5,000+ flows/sec)."""

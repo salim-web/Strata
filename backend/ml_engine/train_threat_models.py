@@ -92,8 +92,8 @@ def generate_synthetic_passive_dataset(
         X = np.zeros((N, len(FEATURE_NAMES)), dtype=np.float32)
 
         # Baseline default: Normal Background Web / API Traffic
-        X[:, 0] = rng.uniform(20.0, 180.0, size=N)        # flow_rate
-        X[:, 1] = rng.normal(1.05, 0.15, size=N).clip(0.5, 2.0) # syn_ack_ratio
+        X[:, 0] = rng.uniform(20.0, 300.0, size=N)        # flow_rate
+        X[:, 1] = rng.normal(1.02, 0.12, size=N).clip(0.6, 1.8) # syn_ack_ratio (balanced)
         X[:, 2] = rng.uniform(1.8, 3.8, size=N)           # src_ip_entropy
         X[:, 3] = rng.uniform(0.15, 1.8, size=N)          # iat_variance
         X[:, 4] = rng.uniform(0.0, 0.25, size=N)          # periodicity_score
@@ -101,57 +101,77 @@ def generate_synthetic_passive_dataset(
         X[:, 6] = rng.uniform(2.0, 3.2, size=N)           # dns_entropy
         X[:, 7] = rng.uniform(0.32, 0.46, size=N)         # dns_vowel_ratio
         X[:, 8] = rng.integers(6, 16, size=N)             # dns_max_label_len
-        X[:, 9] = rng.choice([0.0, 1.0], p=[0.97, 0.03], size=N) # dns_is_txt_null
+        X[:, 9] = 0.0                                     # dns_is_txt_null
         X[:, 10] = 0.0                                    # tls_is_known_malware_ja3
-        X[:, 11] = rng.uniform(200.0, 2500.0, size=N)     # tls_packet_size_variance
+        # Mix of TLS flows (with non-zero variance) and non-TLS flows (with 0.0 variance):
+        is_tls_mask = rng.choice([0.0, 1.0], p=[0.35, 0.65], size=N)
+        X[:, 11] = is_tls_mask * rng.uniform(200.0, 2500.0, size=N)     # tls_packet_size_variance
         X[:, 12] = 0.0                                    # tls_is_fixed_beacon
-        X[:, 13] = rng.integers(1, 6, size=N)             # recon_fanout_cardinality
+        X[:, 13] = rng.integers(1, 5, size=N)             # recon_fanout_cardinality
         X[:, 14] = rng.uniform(0.0, 0.15, size=N)         # recon_syn_only_ratio
         X[:, 15] = rng.uniform(0.05, 0.85, size=N)        # exfil_byte_ratio (inbound > outbound)
         X[:, 16] = rng.uniform(500.0, 25000.0, size=N)    # exfil_bytes_sent
 
         # 1. VOLUMETRIC_DDOS
         if cls_name == "VOLUMETRIC_DDOS":
-            X[:, 0] = rng.uniform(1800.0, 6500.0, size=N)   # High flow rate
-            X[:, 1] = rng.uniform(6.0, 35.0, size=N)        # Massive SYN/ACK ratio
-            X[:, 2] = rng.uniform(6.2, 9.5, size=N)         # Spoofed IP entropy surge
+            X[:, 0] = rng.uniform(50.0, 6500.0, size=N)     # Broad flow rate (burst to flood)
+            X[:, 1] = rng.uniform(4.5, 35.0, size=N)        # Massive SYN/ACK ratio
+            X[:, 2] = rng.uniform(4.5, 9.5, size=N)         # Spoofed or targeted IP entropy
+            X[:, 10] = 0.0                                  # Not malware JA3
+            X[:, 11] = 0.0                                  # No TLS packet size variance
+            X[:, 12] = 0.0                                  # Not fixed TLS beacon
             X[:, 14] = rng.uniform(0.85, 1.0, size=N)       # SYN-only packets
 
         # 2. BOTNET_C2 BEACONING
         elif cls_name == "BOTNET_C2":
             X[:, 3] = rng.uniform(0.0001, 0.025, size=N)    # Ultra-low IAT variance
-            X[:, 4] = rng.uniform(0.75, 0.99, size=N)       # High periodicity autocorrelation
-            X[:, 5] = rng.choice([2.0, 5.0, 10.0, 30.0, 60.0], size=N) + rng.normal(0, 0.01, size=N)
+            X[:, 4] = rng.uniform(0.70, 0.99, size=N)       # High periodicity autocorrelation
+            X[:, 5] = rng.choice([0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0], size=N) + rng.normal(0, 0.01, size=N)
+            X[:, 1] = rng.uniform(0.8, 1.4, size=N)         # Balanced SYN/ACK
+            X[:, 10] = 0.0                                  # Distinct from JA3 malware signatures
+            X[:, 14] = rng.uniform(0.0, 0.15, size=N)
 
         # 3. DGA_DNS_TUNNEL
         elif cls_name == "DGA_DNS_TUNNEL":
-            X[:, 6] = rng.uniform(3.9, 5.2, size=N)         # High character entropy
+            X[:, 6] = rng.uniform(3.8, 5.2, size=N)         # High character entropy
             X[:, 7] = rng.choice([
                 rng.uniform(0.05, 0.17), rng.uniform(0.68, 0.88)
-            ])                                              # Skewed vowel ratio
-            X[:, 8] = rng.integers(24, 48, size=N)          # Long domain labels
+            ], size=N)                                      # Skewed vowel ratio
+            X[:, 8] = rng.integers(20, 48, size=N)          # Long domain labels
             X[:, 9] = rng.choice([0.0, 1.0], p=[0.30, 0.70], size=N) # Frequent TXT/NULL records
+            X[:, 10] = 0.0                                  # Not TLS JA3
+            X[:, 11] = 0.0                                  # UDP DNS has 0.0 TLS variance
+            X[:, 12] = 0.0
 
         # 4. ENCRYPTED_MALWARE
         elif cls_name == "ENCRYPTED_MALWARE":
-            X[:, 10] = rng.choice([0.0, 1.0], p=[0.15, 0.85], size=N) # Malicious JA3 hash match
-            X[:, 11] = rng.uniform(1.0, 20.0, size=N)       # Fixed-length packet sizes
+            X[:, 10] = rng.choice([0.0, 1.0], p=[0.10, 0.90], size=N) # Malicious JA3 hash match
+            X[:, 11] = rng.uniform(1.0, 25.0, size=N)       # Fixed-length TLS packet sizes (1-25)
             X[:, 12] = rng.choice([0.0, 1.0], p=[0.20, 0.80], size=N) # Fixed beacon sequence
+            X[:, 1] = rng.uniform(0.8, 1.3, size=N)         # Normal handshake ratio
+            X[:, 4] = rng.uniform(0.0, 0.35, size=N)        # Normal periodicity
+            X[:, 14] = rng.uniform(0.0, 0.15, size=N)
 
         # 5. RECON_SCAN
         elif cls_name == "RECON_SCAN":
-            X[:, 13] = rng.integers(18, 300, size=N)        # High fan-out cardinality
-            X[:, 14] = rng.uniform(0.80, 1.0, size=N)       # SYN probes with zero ACK
-            X[:, 0] = rng.uniform(80.0, 450.0, size=N)
+            X[:, 13] = rng.integers(8, 250, size=N)         # Fanout >= 8 targets/ports
+            X[:, 14] = rng.uniform(0.75, 1.0, size=N)       # SYN probes with zero ACK
+            X[:, 0] = rng.uniform(10.0, 350.0, size=N)
+            X[:, 10] = 0.0                                  # Not TLS JA3
+            X[:, 11] = 0.0                                  # No TLS variance
+            X[:, 12] = 0.0
 
         # 6. DATA_EXFIL
         elif cls_name == "DATA_EXFIL":
-            X[:, 15] = rng.uniform(9.0, 120.0, size=N)      # Extreme outbound/inbound ratio
-            X[:, 16] = rng.uniform(400_000.0, 8_000_000.0, size=N) # Substantial data volume (>400KB)
+            X[:, 15] = rng.uniform(8.0, 150.0, size=N)      # Extreme outbound/inbound ratio
+            X[:, 16] = rng.uniform(250_000.0, 8_000_000.0, size=N) # Substantial data volume (>250KB)
+            X[:, 10] = 0.0                                  # Clean/legitimate TLS
+            X[:, 12] = 0.0
 
-        # Add realistic sensor noise across all features (1-2% jitter)
-        jitter = rng.normal(1.0, 0.02, size=X.shape).clip(0.90, 1.10)
-        X = X * jitter
+        # Add realistic sensor noise across continuous features
+        cont_cols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 13, 14, 15, 16]
+        jitter = rng.normal(1.0, 0.015, size=(N, len(cont_cols))).clip(0.95, 1.05)
+        X[:, cont_cols] = X[:, cont_cols] * jitter
 
         features_list.append(X)
         labels_list.append(np.full(N, cls_idx, dtype=np.int32))

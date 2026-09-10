@@ -208,16 +208,11 @@ class MultiDetectorEnsemble:
 
         # Line-rate baseline filter: if flow is within normal parameters, bypass ML to guarantee < 0.05ms SLA
         is_potential_threat = (
-            feat_vec[0] > 500.0 or                  # elevated flow rate
-            feat_vec[1] > 2.5 or                    # elevated SYN/ACK
-            feat_vec[2] > 4.5 or                    # elevated source IP entropy
-            (feat_vec[4] > 0.50 and feat_vec[3] < 0.10) or # periodic beacon profile
-            feat_vec[6] > 3.4 or                    # DNS entropy
-            feat_vec[8] > 18 or                     # DNS label length
-            feat_vec[9] > 0.5 or                    # TXT/NULL record
-            feat_vec[10] > 0.5 or                   # known malicious JA3
-            feat_vec[12] > 0.5 or                   # fixed-length TLS heartbeat
-            feat_vec[13] >= 8 or                    # recon fanout
+            ((feat_vec[0] > 1500.0 or feat_vec[1] > 4.0 or flow.tcp_flags.get("SYN", 0) >= 5) and flow.tcp_flags.get("ACK", 0) == 0 and not flow.is_dns) or # DDoS condition
+            (feat_vec[4] > 0.60 and feat_vec[3] < 0.05 and feat_vec[5] >= 0.05 and int(beacon_metrics.get("sample_count", 0)) >= 3) or # periodic beacon profile
+            ((flow.is_dns or flow.dns_query) and (feat_vec[6] > 3.4 or feat_vec[8] > 18 or feat_vec[9] > 0.5)) or # DNS anomaly
+            (flow.is_tls and (feat_vec[10] > 0.5 or feat_vec[12] > 0.5)) or # TLS malware or fixed beacon
+            (feat_vec[13] >= 8 and (feat_vec[14] >= 0.65 or flow.tcp_flags.get("ACK", 0) == 0)) or # recon fanout with SYN probes
             (feat_vec[15] > 3.0 and feat_vec[16] > 100_000) # exfiltration ratio & volume
         )
         if not is_potential_threat:
@@ -237,7 +232,7 @@ class MultiDetectorEnsemble:
                 logger.debug(f"Classifier inference exception: {e}")
                 predicted_class = "NORMAL"
 
-        # Heuristic cross-validation to ensure zero false-negatives on edge conditions
+        # Domain heuristic cross-validation
         heuristic_threat, heur_conf, heur_evidence = self._evaluate_heuristics(
             flow=flow,
             feat_vec=feat_vec,
@@ -249,16 +244,46 @@ class MultiDetectorEnsemble:
             exfil_metrics=exfil_metrics
         )
 
-        # Decide final classification
+        # Cross-Arbitration with Physical Domain Guard Integrity:
         final_threat = "NORMAL"
         final_conf = 0.0
 
-        if predicted_class != "NORMAL" and confidence >= 0.50:
+        # Physical domain guards to reject invalid cross-protocol ML classifications:
+        # 1. Non-TLS flow physically CANNOT be ENCRYPTED_MALWARE
+        # 2. Non-DNS flow physically CANNOT be DGA_DNS_TUNNEL
+        # 3. Sub-millisecond burst (<0.05s) CANNOT be BOTNET_C2 periodic beacon
+        # 4. Flows with ACKs or fanout < 8 CANNOT be RECON_SCAN
+        # 5. Flows with ACKs or non-elevated SYN ratio CANNOT be VOLUMETRIC_DDOS
+        # 6. Small transfers CANNOT be DATA_EXFIL
+        is_valid_ml = True
+        if predicted_class == "ENCRYPTED_MALWARE" and not (flow.is_tls or flow.ja3_hash):
+            is_valid_ml = False
+        elif predicted_class == "DGA_DNS_TUNNEL" and not (flow.is_dns or flow.dns_query):
+            is_valid_ml = False
+        elif predicted_class == "BOTNET_C2" and (feat_vec[5] < 0.05 or feat_vec[3] > 0.05 or feat_vec[4] < 0.60 or int(beacon_metrics.get("sample_count", 0)) < 3):
+            is_valid_ml = False
+        elif predicted_class == "RECON_SCAN" and (feat_vec[13] < 8 or feat_vec[14] < 0.65 or flow.tcp_flags.get("ACK", 0) > 0):
+            is_valid_ml = False
+        elif predicted_class == "VOLUMETRIC_DDOS" and (flow.is_dns or flow.tcp_flags.get("ACK", 0) > 0 or (flow.tcp_flags.get("SYN", 0) == 0 and feat_vec[0] < 1000.0 and feat_vec[1] < 4.0)):
+            is_valid_ml = False
+        elif predicted_class == "DATA_EXFIL" and (feat_vec[15] < 4.0 or feat_vec[16] < 100_000):
+            is_valid_ml = False
+
+        if heuristic_threat is not None:
+            if is_valid_ml and predicted_class == heuristic_threat:
+                final_threat = predicted_class
+                final_conf = max(confidence, heur_conf)
+            elif is_valid_ml and confidence >= 0.95 and predicted_class != "NORMAL":
+                # ML is extremely confident and passes domain guards
+                final_threat = predicted_class
+                final_conf = confidence
+            else:
+                # Heuristic takes precedence when ML misclassifies cross-protocol
+                final_threat = heuristic_threat
+                final_conf = heur_conf
+        elif is_valid_ml and predicted_class != "NORMAL" and confidence >= 0.50:
             final_threat = predicted_class
             final_conf = confidence
-        elif heuristic_threat is not None:
-            final_threat = heuristic_threat
-            final_conf = max(confidence, heur_conf)
 
         # If threat detected, build StandardizedAlert record
         if final_threat != "NORMAL":
@@ -298,50 +323,58 @@ class MultiDetectorEnsemble:
         exfil_metrics: Dict[str, float]
     ) -> Tuple[Optional[str], float, Dict[str, str]]:
         """Secondary heuristic verification to catch synthetic bursts & rule edge-cases."""
-        # 1. DDoS check
+        # 1. DNS DGA check (Always prioritize DNS protocol specifics)
+        if flow.is_dns or flow.dns_query:
+            dns_ent = feat_vec[6]
+            vowel_ratio = feat_vec[7]
+            max_label = feat_vec[8]
+            is_txt_null = feat_vec[9]
+            if (
+                (is_txt_null > 0.5 and (dns_ent > 3.2 or max_label > 18)) or
+                (dns_ent > 3.75 and (vowel_ratio < 0.20 or vowel_ratio > 0.65 or max_label > 20))
+            ):
+                return "DGA_DNS_TUNNEL", min(0.99, 0.85 + max(0.0, (dns_ent - 3.75) * 0.08)), {}
+
+        # 2. Exfiltration check (Prioritize extreme asymmetric data transfers)
+        byte_ratio = feat_vec[15]
+        bytes_sent = feat_vec[16]
+        if byte_ratio > 8.0 and bytes_sent > 200_000:
+            return "DATA_EXFIL", min(0.98, 0.75 + min(0.23, (byte_ratio / 50.0))), {}
+
+        # 3. Recon check (fanout >= 8 ports/IPs and SYN probes)
+        fanout = feat_vec[13]
+        syn_only = feat_vec[14]
+        if fanout >= 8 and (syn_only >= 0.70 or (flow.tcp_flags.get("SYN", 0) > 0 and flow.tcp_flags.get("ACK", 0) == 0)):
+            return "RECON_SCAN", min(0.98, 0.75 + (fanout - 8) * 0.02), {}
+
+        # 4. C2 Beaconing check (Requires genuine inter-arrival interval >= 0.05s and sample count >= 3)
+        periodicity = feat_vec[4]
+        iat_var = feat_vec[3]
+        iat_mean = feat_vec[5]
+        sample_count = int(beacon_metrics.get("sample_count", 0))
+        if periodicity >= 0.65 and iat_var < 0.05 and iat_mean >= 0.05 and sample_count >= 3:
+            return "BOTNET_C2", min(0.98, max(0.80, periodicity)), {}
+
+        # 5. Encrypted Malware check (Requires TLS or JA3)
+        is_known_ja3 = feat_vec[10]
+        is_fixed_beacon = feat_vec[12]
+        ja3_hash = (flow.ja3_hash or encrypted_metrics.get("ja3_hash") or "").lower()
+        if (flow.is_tls or flow.ja3_hash):
+            if is_known_ja3 > 0.5 or any(h in ja3_hash for h in KNOWN_MALWARE_JA3):
+                return "ENCRYPTED_MALWARE", 0.98, {}
+            if is_fixed_beacon > 0.5 and not flow.tls_sni and flow.dst_port in [443, 8443, 8080]:
+                return "ENCRYPTED_MALWARE", 0.88, {}
+
+        # 6. Volumetric DDoS check (Requires TCP SYN flood: SYN > 0 and ACK == 0, under elevated window ratios)
         flow_rate = feat_vec[0]
         syn_ack = feat_vec[1]
         entropy = feat_vec[2]
-        if syn_ack > 4.5 or flow_rate > 1500.0 or (entropy > 6.0 and flow_rate > 500.0):
-            score = 0.70 + min(0.28, (syn_ack - 4.5) * 0.05) if syn_ack > 4.5 else 0.85
-            return "VOLUMETRIC_DDOS", min(0.99, score), {}
-
-        # 2. C2 Beaconing check
-        periodicity = feat_vec[4]
-        iat_var = feat_vec[3]
-        if periodicity >= 0.65 and iat_var < 0.05 and int(beacon_metrics.get("sample_count", 0)) >= 3:
-            return "BOTNET_C2", min(0.98, max(0.75, periodicity)), {}
-
-        # 3. DNS DGA check
-        dns_ent = feat_vec[6]
-        vowel_ratio = feat_vec[7]
-        max_label = feat_vec[8]
-        is_txt_null = feat_vec[9]
-        if (flow.is_dns or flow.dns_query) and (
-            (is_txt_null > 0.5 and (dns_ent > 3.5 or max_label > 20)) or
-            (dns_ent > 3.8 and (vowel_ratio < 0.18 or vowel_ratio > 0.70 or max_label > 24))
-        ):
-            return "DGA_DNS_TUNNEL", 0.94, {}
-
-        # 4. Encrypted Malware check
-        is_known_ja3 = feat_vec[10]
-        is_fixed_beacon = feat_vec[12]
-        ja3_hash = flow.ja3_hash or encrypted_metrics.get("ja3_hash") or ""
-        if (flow.is_tls or flow.ja3_hash) and (is_known_ja3 > 0.5 or any(h in ja3_hash for h in KNOWN_MALWARE_JA3)):
-            return "ENCRYPTED_MALWARE", 0.96, {}
-        if is_fixed_beacon > 0.5 and not flow.tls_sni and flow.dst_port in [443, 8443, 8080]:
-            return "ENCRYPTED_MALWARE", 0.82, {}
-
-        # 5. Recon check
-        fanout = feat_vec[13]
-        if fanout >= 15:
-            return "RECON_SCAN", min(0.98, 0.70 + (fanout - 15) * 0.01), {}
-
-        # 6. Exfil check
-        byte_ratio = feat_vec[15]
-        bytes_sent = feat_vec[16]
-        if byte_ratio > 8.0 and bytes_sent > 250_000:
-            return "DATA_EXFIL", min(0.97, 0.70 + (byte_ratio / 60.0)), {}
+        syn_count = flow.tcp_flags.get("SYN", 0)
+        ack_count = flow.tcp_flags.get("ACK", 0)
+        if (syn_count > 0 or flow_rate > 1500.0 or syn_ack > 4.0) and ack_count == 0 and not flow.is_dns:
+            if syn_count >= 5 or syn_ack > 4.0 or flow_rate > 1500.0 or (entropy > 6.0 and flow_rate > 500.0):
+                score = 0.75 + min(0.24, max((syn_ack - 4.0) * 0.04, syn_count * 0.01, (flow_rate - 1500.0) / 10000.0))
+                return "VOLUMETRIC_DDOS", min(0.99, score), {}
 
         return None, 0.0, {}
 
